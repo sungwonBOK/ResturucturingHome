@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+build/
+*.log
+package-lock.json
+.env
+.env.local
+.env*.local
+supabase/.temp/
+ios/build/
+android/build/
+android/.gradle/
+*.jks
+*.keystore

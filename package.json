@@ -1,0 +1,9 @@
+{
+  "name": "restructuring-home",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "mobile": "pnpm --filter mobile start",
+    "type-check": "pnpm --filter @restructuring-home/domain type-check"
+  }
+}
