@@ -14,29 +14,79 @@ import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme/colors';
+import {
+  DEV_ADMIN_EMAIL,
+  DEV_ADMIN_PASSWORD,
+  isDevAdminAuthEnabled,
+  signInDevAdmin,
+} from '../../src/services/devAuth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const devAdminAuthEnabled = isDevAdminAuthEnabled();
 
   const handleLogin = async () => {
     if (!email || !password) {
       setError('이메일과 비밀번호를 입력해주세요.');
       return;
     }
+
     setError('');
     setLoading(true);
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (authError) {
-      setError('이메일 또는 비밀번호가 올바르지 않아요.');
-    } else {
-      router.replace('/(main)/home');
+
+    try {
+      const devAdminResult = await signInDevAdmin(email, password);
+
+      if (devAdminResult.session) {
+        router.replace('/(main)/home');
+        return;
+      }
+
+      if (devAdminResult.error && email.trim().toLowerCase() === DEV_ADMIN_EMAIL) {
+        setError(devAdminResult.error);
+        return;
+      }
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else {
+        router.replace('/(main)/home');
+      }
+    } catch (error) {
+      console.warn('Login request failed.', error);
+      setError('인증 서버에 연결할 수 없습니다. 개발 중이면 관리자 계정으로 우회 로그인할 수 있습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDevAdminLogin = async () => {
+    setEmail(DEV_ADMIN_EMAIL);
+    setPassword(DEV_ADMIN_PASSWORD);
+    setError('');
+    setLoading(true);
+
+    try {
+      const { session, error } = await signInDevAdmin(DEV_ADMIN_EMAIL, DEV_ADMIN_PASSWORD);
+
+      if (session) {
+        router.replace('/(main)/home');
+      } else if (error) {
+        setError(error);
+      }
+    } catch (error) {
+      console.warn('Dev admin login failed.', error);
+      setError('개발용 관리자 로그인에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,7 +96,6 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        {/* 로고 영역 */}
         <View style={styles.logoArea}>
           <LinearGradient
             colors={[colors.gradientStart, colors.gradientEnd]}
@@ -58,7 +107,6 @@ export default function LoginScreen() {
           <Text style={styles.tagline}>AI 가구 배치 추천 서비스</Text>
         </View>
 
-        {/* 폼 */}
         <View style={styles.form}>
           <Text style={styles.formTitle}>로그인</Text>
 
@@ -115,6 +163,17 @@ export default function LoginScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
+          {devAdminAuthEnabled ? (
+            <TouchableOpacity
+              style={styles.devAdminBtn}
+              onPress={handleDevAdminLogin}
+              activeOpacity={0.85}
+              disabled={loading}
+            >
+              <Text style={styles.devAdminBtnText}>개발용 관리자 로그인</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.footer}>
             <Text style={styles.footerText}>계정이 없으신가요? </Text>
             <Link href="/(auth)/signup" asChild>
@@ -132,15 +191,12 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   inner: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
-
-  // Logo
   logoArea: { alignItems: 'center', marginBottom: 48 },
   logoMark: { width: 52, height: 52, borderRadius: 16, marginBottom: 14 },
   appName: {
     fontFamily: 'Inter_700Bold',
     fontSize: 26,
     color: colors.textPrimary,
-    letterSpacing: -0.8,
     marginBottom: 6,
   },
   tagline: {
@@ -148,8 +204,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-
-  // Form
   form: {
     backgroundColor: colors.bgCard,
     borderRadius: 20,
@@ -162,7 +216,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.textPrimary,
     marginBottom: 20,
-    letterSpacing: -0.5,
   },
   errorBox: {
     backgroundColor: 'rgba(248,113,113,0.1)',
@@ -200,6 +253,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
     color: '#fff',
+  },
+  devAdminBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  devAdminBtnText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: colors.textPrimary,
   },
   footer: {
     flexDirection: 'row',

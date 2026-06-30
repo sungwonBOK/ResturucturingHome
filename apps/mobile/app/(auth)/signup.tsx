@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme/colors';
@@ -20,6 +20,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const handleSignup = async () => {
@@ -27,24 +28,34 @@ export default function SignupScreen() {
       setError('모든 항목을 입력해주세요.');
       return;
     }
+
     if (password !== confirm) {
-      setError('비밀번호가 일치하지 않아요.');
+      setError('비밀번호가 일치하지 않습니다.');
       return;
     }
+
     if (password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 해요.');
+      setError('비밀번호는 6자 이상이어야 합니다.');
       return;
     }
+
     setError('');
+    setMessage('');
     setLoading(true);
-    const { error: authError } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    
-    if (authError) {
-      setError('회원가입에 실패했어요. ' + authError.message);
-    } else {
-      // 이메일 인증을 껐으므로 가입 즉시 세션이 생기고, RootLayout에 의해 (main)/home으로 자동 이동됩니다.
-      // 라우팅 처리는 _layout.tsx가 담당하므로 추가 작업 안해도 됩니다.
+
+    try {
+      const { error: authError } = await supabase.auth.signUp({ email, password });
+
+      if (authError) {
+        setError(`회원가입에 실패했습니다. ${authError.message}`);
+      } else {
+        setMessage('회원가입 요청이 완료되었습니다. 로그인 화면에서 다시 시도해주세요.');
+      }
+    } catch (error) {
+      console.warn('Signup request failed.', error);
+      setError('인증 서버에 연결할 수 없습니다. 네트워크 또는 Supabase 설정을 확인해주세요.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,7 +65,6 @@ export default function SignupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        {/* 로고 */}
         <View style={styles.logoArea}>
           <LinearGradient
             colors={[colors.gradientStart, colors.gradientEnd]}
@@ -66,13 +76,18 @@ export default function SignupScreen() {
           <Text style={styles.tagline}>무료로 시작하세요</Text>
         </View>
 
-        {/* 폼 */}
         <View style={styles.form}>
           <Text style={styles.formTitle}>회원가입</Text>
 
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {message ? (
+            <View style={styles.messageBox}>
+              <Text style={styles.messageText}>{message}</Text>
             </View>
           ) : null}
 
@@ -86,6 +101,7 @@ export default function SignupScreen() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              autoComplete="email"
             />
           </View>
 
@@ -98,6 +114,7 @@ export default function SignupScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="password-new"
             />
           </View>
 
@@ -110,6 +127,7 @@ export default function SignupScreen() {
               value={confirm}
               onChangeText={setConfirm}
               secureTextEntry
+              autoComplete="password-new"
             />
           </View>
 
@@ -150,46 +168,12 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   inner: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
-
-  // Success
-  successWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  successIcon: { fontSize: 56, marginBottom: 20 },
-  successTitle: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 22,
-    color: colors.textPrimary,
-    marginBottom: 12,
-    letterSpacing: -0.5,
-  },
-  successDesc: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  backBtnWrap: { borderRadius: 12, overflow: 'hidden', alignSelf: 'stretch' },
-  backBtn: { paddingVertical: 15, alignItems: 'center' },
-  backBtnText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: '#fff',
-  },
-
-  // Logo
   logoArea: { alignItems: 'center', marginBottom: 40 },
   logoMark: { width: 52, height: 52, borderRadius: 16, marginBottom: 14 },
   appName: {
     fontFamily: 'Inter_700Bold',
     fontSize: 26,
     color: colors.textPrimary,
-    letterSpacing: -0.8,
     marginBottom: 6,
   },
   tagline: {
@@ -197,8 +181,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-
-  // Form
   form: {
     backgroundColor: colors.bgCard,
     borderRadius: 20,
@@ -211,7 +193,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.textPrimary,
     marginBottom: 20,
-    letterSpacing: -0.5,
   },
   errorBox: {
     backgroundColor: 'rgba(248,113,113,0.1)',
@@ -225,6 +206,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: colors.error,
+  },
+  messageBox: {
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.2)',
+  },
+  messageText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: colors.success,
   },
   inputGroup: { marginBottom: 14 },
   label: {
