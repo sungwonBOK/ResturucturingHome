@@ -83,3 +83,10 @@
 - `RoomFloorPlan` 타입을 만족하는 원룸 mock fixture 추가
 - `room-editor` 화면에 mock 도면 기반 RN View preview 연결
 - 벽, 문, 창, 가구, 기본 metric(크기/벽/개구부/가구 수)을 렌더링
+
+### Skia 기반 도면 preview 전환
+- `@shopify/react-native-skia@2.2.12`를 Expo SDK 54 compatible dependency로 추가
+- `RoomFloorPlan` cm 좌표를 canvas pixel 좌표로 fit하는 pure geometry helper 추가
+- `room-editor` preview를 RN View 도형에서 Skia `Canvas` 렌더링으로 교체
+- 벽, 문, 창, 가구를 Skia primitive로 렌더링하고 metric row는 기존 RN UI로 유지
+- geometry helper focused assertion을 추가해 scale, offset, draw item 좌표를 검증

@@ -1,6 +1,10 @@
-import type { FurnitureItem, Opening, RoomFloorPlan, Wall } from '@restructuring-home/domain';
+import { Canvas, Group, Line, RoundedRect, vec } from '@shopify/react-native-skia';
+import type { RoomFloorPlan } from '@restructuring-home/domain';
+import { useMemo, useState } from 'react';
+import type { LayoutChangeEvent } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../theme/colors';
+import { getFloorPlanCanvasGeometry } from './floorPlanCanvasGeometry';
 import { getFloorPlanPreviewMetrics } from './floorPlanPreviewMetrics';
 
 interface FloorPlanPreviewProps {
@@ -8,26 +12,105 @@ interface FloorPlanPreviewProps {
 }
 
 export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
+  const [canvasWidth, setCanvasWidth] = useState(0);
   const metrics = getFloorPlanPreviewMetrics(plan);
+  const canvasHeight = canvasWidth > 0 ? Math.min(360, canvasWidth * (plan.height / plan.width)) : 320;
+  const geometry = useMemo(
+    () => getFloorPlanCanvasGeometry(plan, canvasWidth || 1, canvasHeight),
+    [canvasHeight, canvasWidth, plan],
+  );
+
+  const handleCanvasLayout = (event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+
+    if (nextWidth > 0 && Math.abs(nextWidth - canvasWidth) > 0.5) {
+      setCanvasWidth(nextWidth);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <View style={[styles.canvas, { aspectRatio: plan.width / plan.height }]}>
-        {plan.walls.map((wall) => (
-          <WallSegment key={wall.id} wall={wall} plan={plan} />
-        ))}
+      <View style={[styles.canvasFrame, { height: canvasHeight }]} onLayout={handleCanvasLayout}>
+        {canvasWidth > 0 ? (
+          <>
+            <Canvas style={styles.canvas}>
+              {geometry.walls.map((wall) => (
+                <Line
+                  key={wall.id}
+                  p1={vec(wall.x1, wall.y1)}
+                  p2={vec(wall.x2, wall.y2)}
+                  color="#CBD5E1"
+                  strokeWidth={wall.thickness}
+                  strokeCap="round"
+                />
+              ))}
 
-        {plan.windows.map((opening) => (
-          <OpeningSegment key={opening.id} opening={opening} plan={plan} variant="window" />
-        ))}
+              {geometry.openings.map((opening) => (
+                <RoundedRect
+                  key={opening.id}
+                  x={opening.isHorizontal ? opening.x : opening.x - 4}
+                  y={opening.isHorizontal ? opening.y - 4 : opening.y}
+                  width={opening.isHorizontal ? opening.width : 8}
+                  height={opening.isHorizontal ? 8 : opening.width}
+                  r={4}
+                  color={opening.variant === 'door' ? colors.success : colors.primary}
+                />
+              ))}
 
-        {plan.doors.map((opening) => (
-          <OpeningSegment key={opening.id} opening={opening} plan={plan} variant="door" />
-        ))}
+              {geometry.furniture.map((item) => {
+                const centerX = item.x + item.width / 2;
+                const centerY = item.y + item.height / 2;
 
-        {plan.furniture.map((item) => (
-          <FurnitureBlock key={item.id} item={item} plan={plan} />
-        ))}
+                return (
+                  <Group
+                    key={item.id}
+                    origin={vec(centerX, centerY)}
+                    transform={[{ rotate: (item.rotation * Math.PI) / 180 }]}
+                  >
+                    <RoundedRect
+                      x={item.x}
+                      y={item.y}
+                      width={item.width}
+                      height={item.height}
+                      r={10}
+                      color={colors.primaryDim}
+                    />
+                    <RoundedRect
+                      x={item.x}
+                      y={item.y}
+                      width={item.width}
+                      height={item.height}
+                      r={10}
+                      color="rgba(129,140,248,0.48)"
+                      style="stroke"
+                      strokeWidth={1}
+                    />
+                  </Group>
+                );
+              })}
+            </Canvas>
+
+            {geometry.furniture.map((item) => (
+              <View
+                key={item.id}
+                pointerEvents="none"
+                style={[
+                  styles.furnitureLabelWrap,
+                  {
+                    left: item.x,
+                    top: item.y,
+                    width: item.width,
+                    height: item.height,
+                  },
+                ]}
+              >
+                <Text style={styles.furnitureLabel} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
       </View>
 
       <View style={styles.metricsRow}>
@@ -36,85 +119,6 @@ export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
         <Metric label="개구부" value={`${metrics.openingCount}`} />
         <Metric label="가구" value={`${metrics.furnitureCount}`} />
       </View>
-    </View>
-  );
-}
-
-function WallSegment({ wall, plan }: { wall: Wall; plan: RoomFloorPlan }) {
-  const left = Math.min(wall.x1, wall.x2);
-  const top = Math.min(wall.y1, wall.y2);
-  const width = Math.abs(wall.x2 - wall.x1);
-  const height = Math.abs(wall.y2 - wall.y1);
-  const isHorizontal = height === 0;
-
-  return (
-    <View
-      style={[
-        styles.wall,
-        {
-          left: `${(left / plan.width) * 100}%`,
-          top: `${(top / plan.height) * 100}%`,
-          width: isHorizontal ? `${(width / plan.width) * 100}%` : wall.thickness,
-          height: isHorizontal ? wall.thickness : `${(height / plan.height) * 100}%`,
-          transform: [
-            { translateX: isHorizontal ? 0 : -wall.thickness / 2 },
-            { translateY: isHorizontal ? -wall.thickness / 2 : 0 },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function OpeningSegment({
-  opening,
-  plan,
-  variant,
-}: {
-  opening: Opening;
-  plan: RoomFloorPlan;
-  variant: 'door' | 'window';
-}) {
-  const wall = plan.walls.find((item) => item.id === opening.wallId);
-  const isHorizontal = wall ? wall.y1 === wall.y2 : true;
-
-  return (
-    <View
-      style={[
-        styles.opening,
-        variant === 'door' ? styles.door : styles.window,
-        {
-          left: `${(opening.x / plan.width) * 100}%`,
-          top: `${(opening.y / plan.height) * 100}%`,
-          width: isHorizontal ? `${(opening.width / plan.width) * 100}%` : 8,
-          height: isHorizontal ? 8 : `${(opening.width / plan.height) * 100}%`,
-          transform: [
-            { translateX: isHorizontal ? 0 : -4 },
-            { translateY: isHorizontal ? -4 : 0 },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
-function FurnitureBlock({ item, plan }: { item: FurnitureItem; plan: RoomFloorPlan }) {
-  return (
-    <View
-      style={[
-        styles.furniture,
-        {
-          left: `${(item.x / plan.width) * 100}%`,
-          top: `${(item.y / plan.height) * 100}%`,
-          width: `${(item.width / plan.width) * 100}%`,
-          height: `${(item.height / plan.height) * 100}%`,
-          transform: [{ rotate: `${item.rotation}deg` }],
-        },
-      ]}
-    >
-      <Text style={styles.furnitureLabel} numberOfLines={1}>
-        {item.label ?? item.type}
-      </Text>
     </View>
   );
 }
@@ -136,9 +140,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
   },
-  canvas: {
+  canvasFrame: {
     width: '100%',
-    maxHeight: 360,
     borderRadius: 14,
     backgroundColor: colors.bg,
     borderWidth: 1,
@@ -146,29 +149,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  wall: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: '#CBD5E1',
+  canvas: {
+    flex: 1,
   },
-  opening: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
-  door: {
-    backgroundColor: colors.success,
-  },
-  window: {
-    backgroundColor: colors.primary,
-  },
-  furniture: {
+  furnitureLabelWrap: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(129,140,248,0.48)',
-    backgroundColor: colors.primaryDim,
     paddingHorizontal: 4,
   },
   furnitureLabel: {

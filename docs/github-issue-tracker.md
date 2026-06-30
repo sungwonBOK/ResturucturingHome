@@ -8,7 +8,7 @@ Created with GitHub CLI on 2026-06-30.
 - Tracker: https://github.com/sungwonBOK/ResturucturingHome/issues/8
 - Done: Expo SDK 54 patch warning stabilization: https://github.com/sungwonBOK/ResturucturingHome/issues/1
 - Done: Connect mock `RoomFloorPlan` to `room-editor`: https://github.com/sungwonBOK/ResturucturingHome/issues/2
-- Next: Replace RN preview with Skia floor-plan editor: https://github.com/sungwonBOK/ResturucturingHome/issues/3
+- Done: Replace RN preview with Skia floor-plan editor: https://github.com/sungwonBOK/ResturucturingHome/issues/3
 - Next: Persist `RoomFloorPlan` to Supabase `rooms`: https://github.com/sungwonBOK/ResturucturingHome/issues/4
 - Next: Implement scan result ingestion flow: https://github.com/sungwonBOK/ResturucturingHome/issues/5
 - Next: Implement OpenAI recommendation Edge Function: https://github.com/sungwonBOK/ResturucturingHome/issues/6
@@ -26,7 +26,7 @@ Active tracker for the current MVP.
 - [ ] Connect mock `RoomFloorPlan` to `room-editor`
 
 ### Next
-- [ ] Replace RN preview with Skia floor-plan editor
+- [x] Replace RN preview with Skia floor-plan editor
 - [ ] Persist `RoomFloorPlan` to Supabase `rooms`
 - [ ] Implement scan result ingestion flow
 - [ ] Implement OpenAI recommendation Edge Function
