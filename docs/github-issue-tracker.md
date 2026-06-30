@@ -21,6 +21,17 @@ Created with GitHub CLI on 2026-06-30.
 ### Status
 Active tracker for the current MVP.
 
+### 2026-07-01 Progress Update
+- App boot now reaches the login screen in Expo Go after adding an explicit root route at `apps/mobile/app/index.tsx`.
+- Hardened root auth initialization in `apps/mobile/app/_layout.tsx` with Supabase `getSession()` timeout fallback, error handling, font-load fallback, and auth subscription cleanup.
+- Added a development-only local admin bypass login for Expo testing.
+  - Implemented in `apps/mobile/src/services/devAuth.ts`
+  - Credentials are read from ignored local `.env` values and are not documented in the tracker.
+- Updated auth screens to surface network failures instead of throwing unhandled runtime errors.
+- Current Supabase Auth issue remains open: iOS runtime reports `Network request failed` for real sign-up/login.
+- Current mock save issue remains open: dev admin bypass has no real Supabase session, so Supabase-backed mock save can still show `Auth session missing!`.
+- `newArchEnabled: false` remains as a local experiment and produces an Expo Go warning because New Architecture is always enabled in Expo Go.
+
 ### Completed
 - [ ] Expo SDK 54 patch warning stabilization
 - [ ] Connect mock `RoomFloorPlan` to `room-editor`
@@ -36,6 +47,11 @@ Active tracker for the current MVP.
 - `pnpm --filter mobile exec expo install --check`
 - `pnpm --filter mobile exec tsc --noEmit`
 - `pnpm --filter @restructuring-home/domain type-check`
+
+### Latest Local Verification
+- `node node_modules/typescript/bin/tsc --noEmit -p apps/mobile/tsconfig.json`: passed
+- `corepack pnpm --filter mobile exec node ../../node_modules/typescript/bin/tsc --noEmit`: passed
+- Manual Expo Go check: login screen is reachable; dev admin login unblocks UI navigation.
 
 ---
 
