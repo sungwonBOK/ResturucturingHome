@@ -124,6 +124,12 @@ Save and load room floor-plan JSON through Supabase `rooms`.
 - Saved room can be loaded back into the app
 - No OpenAI or service role keys are shipped in mobile code
 
+### Current Implementation
+- Added a mobile room persistence service using the existing public Supabase client and authenticated user session.
+- Connected the mock floor-plan save/load flow to `room-editor`.
+- Added a focused service assertion for insert payload and load mapping.
+- Pending before closing GitHub issue #4: verify the round-trip from an authenticated device or simulator session.
+
 ---
 
 ## Next: Implement scan result ingestion flow

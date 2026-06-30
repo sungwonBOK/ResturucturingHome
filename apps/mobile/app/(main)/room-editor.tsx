@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { MainFlowScreen } from '../../src/components/MainFlowScreen';
 import { FloorPlanPreview } from '../../src/features/room-editor/FloorPlanPreview';
+import { RoomPersistencePanel } from '../../src/features/room-editor/RoomPersistencePanel';
 import { mockStudioFloorPlan } from '../../src/mocks/mockRoomFloorPlan';
 
 export default function RoomEditorScreen() {
@@ -20,6 +21,7 @@ export default function RoomEditorScreen() {
       onSecondaryPress={() => router.back()}
     >
       <FloorPlanPreview plan={mockStudioFloorPlan} />
+      <RoomPersistencePanel plan={mockStudioFloorPlan} />
     </MainFlowScreen>
   );
 }
