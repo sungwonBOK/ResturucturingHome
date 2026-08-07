@@ -83,4 +83,4 @@
 
 - [x] Run all three focused Node-compiled test files, mobile `tsc --noEmit`, domain type-check, Function source type-check, and `git diff --check`.
 - [ ] Manually deploy only after setting `OPENAI_API_KEY` as a Supabase secret and retaining JWT verification. Then, in Expo Go with real Auth, request one style and verify three cards appear. This remains a manual gate because the repository has no local Deno/Supabase runtime.
-- [ ] Commit only Issue #6 files; exclude `RestructuringHome - 바로 가기.lnk`.
+- [x] Commit only Issue #6 files; exclude `RestructuringHome - 바로 가기.lnk`.
