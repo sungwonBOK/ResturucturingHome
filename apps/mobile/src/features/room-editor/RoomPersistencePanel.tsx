@@ -2,13 +2,20 @@ import type { RoomFloorPlan } from '@restructuring-home/domain';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../theme/colors';
-import { roomPersistence, type SavedRoom } from '../../services/roomPersistence';
+import {
+  devRoomPersistence,
+  roomPersistence,
+  type RoomPersistence,
+  type SavedRoom,
+} from '../../services/roomPersistence';
+import { getDevAdminSession } from '../../services/devAuth';
 
 interface RoomPersistencePanelProps {
   plan: RoomFloorPlan;
 }
 
 type PersistenceStatus = 'idle' | 'saving' | 'loading' | 'saved' | 'loaded' | 'error';
+type PersistenceMode = 'supabase' | 'dev-mock';
 
 export function RoomPersistencePanel({ plan }: RoomPersistencePanelProps) {
   const [savedRoom, setSavedRoom] = useState<SavedRoom | null>(null);
@@ -21,7 +28,8 @@ export function RoomPersistencePanel({ plan }: RoomPersistencePanelProps) {
     setMessage('도면을 Supabase rooms에 저장하는 중입니다.');
 
     try {
-      const nextRoom = await roomPersistence.saveRoomFloorPlan({
+      const activePersistence = await getActiveRoomPersistence();
+      const nextRoom = await activePersistence.persistence.saveRoomFloorPlan({
         name: '테스트 원룸',
         floorPlan: plan,
       });
@@ -29,7 +37,11 @@ export function RoomPersistencePanel({ plan }: RoomPersistencePanelProps) {
       setSavedRoom(nextRoom);
       setLoadedRoom(null);
       setStatus('saved');
-      setMessage(`저장 완료: ${nextRoom.name}`);
+      if (activePersistence.mode === 'dev-mock') {
+        setMessage(`개발 모의 저장 완료: ${nextRoom.name}`);
+      } else {
+        setMessage(`저장 완료: ${nextRoom.name}`);
+      }
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : '도면 저장 중 오류가 발생했습니다.');
@@ -45,11 +57,16 @@ export function RoomPersistencePanel({ plan }: RoomPersistencePanelProps) {
     setMessage('저장된 도면을 다시 불러오는 중입니다.');
 
     try {
-      const nextRoom = await roomPersistence.loadRoomFloorPlan(savedRoom.id);
+      const activePersistence = await getActiveRoomPersistence();
+      const nextRoom = await activePersistence.persistence.loadRoomFloorPlan(savedRoom.id);
 
       setLoadedRoom(nextRoom);
       setStatus('loaded');
-      setMessage(`로드 완료: ${nextRoom.floorPlan.width}cm x ${nextRoom.floorPlan.height}cm`);
+      if (activePersistence.mode === 'dev-mock') {
+        setMessage(`개발 모의 로드 완료: ${nextRoom.floorPlan.width}cm x ${nextRoom.floorPlan.height}cm`);
+      } else {
+        setMessage(`로드 완료: ${nextRoom.floorPlan.width}cm x ${nextRoom.floorPlan.height}cm`);
+      }
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : '도면 로드 중 오류가 발생했습니다.');
@@ -101,6 +118,25 @@ export function RoomPersistencePanel({ plan }: RoomPersistencePanelProps) {
       </View>
     </View>
   );
+}
+
+async function getActiveRoomPersistence(): Promise<{
+  persistence: RoomPersistence;
+  mode: PersistenceMode;
+}> {
+  const devAdminSession = await getDevAdminSession();
+
+  if (devAdminSession) {
+    return {
+      persistence: devRoomPersistence,
+      mode: 'dev-mock',
+    };
+  }
+
+  return {
+    persistence: roomPersistence,
+    mode: 'supabase',
+  };
 }
 
 const styles = StyleSheet.create({

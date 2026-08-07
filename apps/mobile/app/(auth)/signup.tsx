@@ -14,6 +14,7 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme/colors';
+import { getAuthErrorMessage } from '../../src/services/authErrorMessage';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -47,7 +48,7 @@ export default function SignupScreen() {
       const { error: authError } = await supabase.auth.signUp({ email, password });
 
       if (authError) {
-        setError(`회원가입에 실패했습니다. ${authError.message}`);
+        setError(getAuthErrorMessage('signup', authError));
       } else {
         setMessage('회원가입 요청이 완료되었습니다. 로그인 화면에서 다시 시도해주세요.');
       }

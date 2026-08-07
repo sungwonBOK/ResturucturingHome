@@ -1,4 +1,4 @@
--- 초기 마이그레이션: rooms 및 recommendations 테이블 생성
+-- Initial migration: create rooms and recommendations tables.
 
 create table public.rooms (
   id uuid primary key default gen_random_uuid(),
@@ -17,11 +17,11 @@ create table public.recommendations (
   created_at timestamptz default now()
 );
 
--- RLS 활성화
+-- Enable row level security.
 alter table public.rooms enable row level security;
 alter table public.recommendations enable row level security;
 
--- 기본 정책: 본인 데이터만 접근
+-- Default policies: users can access only their own data.
 create policy "rooms: own data" on public.rooms
   for all using (auth.uid() = user_id);
 

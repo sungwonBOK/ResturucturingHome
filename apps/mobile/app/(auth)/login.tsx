@@ -20,6 +20,7 @@ import {
   isDevAdminAuthEnabled,
   signInDevAdmin,
 } from '../../src/services/devAuth';
+import { getAuthErrorMessage } from '../../src/services/authErrorMessage';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -56,7 +57,7 @@ export default function LoginScreen() {
       });
 
       if (authError) {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+        setError(getAuthErrorMessage('login', authError));
       } else {
         router.replace('/(main)/home');
       }

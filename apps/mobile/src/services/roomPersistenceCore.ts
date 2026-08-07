@@ -56,7 +56,48 @@ export interface SaveRoomFloorPlanInput {
   floorPlan: RoomFloorPlan;
 }
 
-export function createRoomPersistence(client: RoomPersistenceClient) {
+export interface RoomPersistence {
+  saveRoomFloorPlan: (input: SaveRoomFloorPlanInput) => Promise<SavedRoom>;
+  loadRoomFloorPlan: (roomId: string) => Promise<SavedRoom>;
+}
+
+export interface MemoryRoomPersistenceOptions {
+  now?: () => string;
+}
+
+export function createMemoryRoomPersistence(options: MemoryRoomPersistenceOptions = {}): RoomPersistence {
+  const rooms = new Map<string, SavedRoom>();
+  let nextRoomNumber = 1;
+  const getNow = options.now ?? (() => new Date().toISOString());
+
+  return {
+    async saveRoomFloorPlan(input: SaveRoomFloorPlanInput): Promise<SavedRoom> {
+      const room: SavedRoom = {
+        id: `mock-room-${nextRoomNumber}`,
+        name: input.name,
+        floorPlan: input.floorPlan,
+        createdAt: getNow(),
+      };
+
+      nextRoomNumber += 1;
+      rooms.set(room.id, room);
+
+      return room;
+    },
+
+    async loadRoomFloorPlan(roomId: string): Promise<SavedRoom> {
+      const room = rooms.get(roomId);
+
+      if (!room) {
+        throw new Error('Mock room not found.');
+      }
+
+      return room;
+    },
+  };
+}
+
+export function createRoomPersistence(client: RoomPersistenceClient): RoomPersistence {
   return {
     async saveRoomFloorPlan(input: SaveRoomFloorPlanInput): Promise<SavedRoom> {
       const userResult = await client.auth.getUser();

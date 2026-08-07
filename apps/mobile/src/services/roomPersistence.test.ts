@@ -1,5 +1,6 @@
 import { mockStudioFloorPlan } from '../mocks/mockRoomFloorPlan';
 import {
+  createMemoryRoomPersistence,
   createRoomPersistence,
   type RoomPersistenceClient,
 } from './roomPersistenceCore';
@@ -77,6 +78,24 @@ async function run() {
 
   assertEqual(loadedRoom.id, 'room-123', 'loaded room id');
   assertEqual(loadedRoom.floorPlan.height, mockStudioFloorPlan.height, 'loaded floor plan height');
+
+  const memoryPersistence = createMemoryRoomPersistence({
+    now: () => '2026-07-01T00:25:00.000Z',
+  });
+
+  const devSavedRoom = await memoryPersistence.saveRoomFloorPlan({
+    name: 'Dev mock room',
+    floorPlan: mockStudioFloorPlan,
+  });
+
+  assertEqual(devSavedRoom.id, 'mock-room-1', 'dev saved room id');
+  assertEqual(devSavedRoom.name, 'Dev mock room', 'dev saved room name');
+  assertEqual(devSavedRoom.createdAt, '2026-07-01T00:25:00.000Z', 'dev saved room timestamp');
+
+  const devLoadedRoom = await memoryPersistence.loadRoomFloorPlan(devSavedRoom.id);
+
+  assertEqual(devLoadedRoom.id, devSavedRoom.id, 'dev loaded room id');
+  assertEqual(devLoadedRoom.floorPlan.width, mockStudioFloorPlan.width, 'dev loaded floor plan width');
 }
 
 function assertEqual<T>(actual: T, expected: T, label: string) {
