@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { MainFlowScreen } from '../../src/components/MainFlowScreen';
 import { FloorPlanPreview } from '../../src/features/room-editor/FloorPlanPreview';
 import { RoomPersistencePanel } from '../../src/features/room-editor/RoomPersistencePanel';
+import { RecommendationPanel } from '../../src/features/recommendations/RecommendationPanel';
 import { getRoomEditorPlan, scanDraftRepository } from '../../src/features/scan/scanDraft';
 import { mockStudioFloorPlan } from '../../src/mocks/mockRoomFloorPlan';
 
@@ -27,6 +28,7 @@ export default function RoomEditorScreen() {
       onSecondaryPress={() => router.back()}
     >
       <FloorPlanPreview plan={plan} />
+      <RecommendationPanel plan={plan} />
       <RoomPersistencePanel plan={plan} />
     </MainFlowScreen>
   );
