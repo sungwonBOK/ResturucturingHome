@@ -11,8 +11,8 @@ function run() {
   const plan = fixtureScanResultAdapter.toRoomFloorPlan(fixtureScanResult);
   const draft = repository.create(plan);
 
-  assertEqual(plan.width, 360, 'fixture plan width');
-  assertEqual(plan.height, 480, 'fixture plan height');
+  assertEqual(plan.width, 420, 'fixture plan width');
+  assertEqual(plan.height, 520, 'fixture plan height');
   assertEqual(plan.walls[0].id, 'wall-north', 'fixture north wall');
   assertEqual(draft.id, 'scan-draft-1', 'first draft id');
   assertEqual(repository.get(draft.id), plan, 'stored draft plan');

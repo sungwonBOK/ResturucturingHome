@@ -44,7 +44,7 @@ const repository = createMemoryScanDraftRepository();
 const plan = fixtureScanResultAdapter.toRoomFloorPlan(fixtureScanResult);
 const draft = repository.create(plan);
 
-assertEqual(plan.width, 360, 'fixture plan width');
+assertEqual(plan.width, 420, 'fixture plan width');
 assertEqual(repository.get(draft.id)?.height, 480, 'stored plan height');
 assertEqual(getRoomEditorPlan('missing', repository, fallback), fallback, 'unknown draft fallback');
 assertEqual(getRoomEditorPlan(draft.id, repository, fallback), plan, 'editor draft plan');
@@ -152,7 +152,7 @@ Expected: all commands exit 0.
 
 - [ ] **Step 3: Perform or hand off the manual Expo Go check**
 
-Open Scan, tap the scan completion action, and verify that editor preview dimensions and the persistence panel use the fixture draft rather than the direct-entry sample. Also verify an app reload or an unknown `draftId` shows the sample fallback and expiry copy. This is intentionally manual because a React Native route test would require an unconfigured test runtime and would be larger than this feature's pure boundary test.
+Open Scan, tap the scan completion action, and verify that editor preview dimensions show the 420 x 520 fixture draft rather than the Home direct-entry 360 x 480 sample. Also verify an app reload or an unknown `draftId` shows the sample fallback and the `DRAFT EXPIRED` indicator. This is intentionally manual because a React Native route test would require an unconfigured test runtime and would be larger than this feature's pure boundary test.
 
 - [ ] **Step 4: Commit**
 

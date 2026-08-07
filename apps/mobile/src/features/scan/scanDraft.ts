@@ -1,5 +1,4 @@
 import type { RoomFloorPlan } from '@restructuring-home/domain';
-import { mockStudioFloorPlan } from '../../mocks/mockRoomFloorPlan';
 
 export interface ScanResultAdapter<RawResult> {
   toRoomFloorPlan(rawResult: RawResult): RoomFloorPlan;
@@ -28,13 +27,22 @@ export interface FixtureScanResult {
 
 export const fixtureScanResult: FixtureScanResult = {
   dimensions: {
-    widthCm: mockStudioFloorPlan.width,
-    heightCm: mockStudioFloorPlan.height,
+    widthCm: 420,
+    heightCm: 520,
   },
-  boundaries: mockStudioFloorPlan.walls,
-  entries: mockStudioFloorPlan.doors,
-  glazedOpenings: mockStudioFloorPlan.windows,
-  detectedFurniture: mockStudioFloorPlan.furniture,
+  boundaries: [
+    { id: 'wall-north', x1: 0, y1: 0, x2: 420, y2: 0, thickness: 10 },
+    { id: 'wall-east', x1: 420, y1: 0, x2: 420, y2: 520, thickness: 10 },
+    { id: 'wall-south', x1: 420, y1: 520, x2: 0, y2: 520, thickness: 10 },
+    { id: 'wall-west', x1: 0, y1: 520, x2: 0, y2: 0, thickness: 10 },
+  ],
+  entries: [{ id: 'door-entry', wallId: 'wall-south', x: 170, y: 520, width: 80 }],
+  glazedOpenings: [{ id: 'window-main', wallId: 'wall-north', x: 104, y: 0, width: 160 }],
+  detectedFurniture: [
+    { id: 'bed-main', type: 'bed', x: 28, y: 48, width: 160, height: 210, rotation: 0 },
+    { id: 'desk-window', type: 'desk', x: 270, y: 60, width: 112, height: 60, rotation: 0 },
+    { id: 'wardrobe-entry', type: 'wardrobe', x: 292, y: 340, width: 90, height: 140, rotation: 0 },
+  ],
 };
 
 export const fixtureScanResultAdapter: ScanResultAdapter<FixtureScanResult> = {
