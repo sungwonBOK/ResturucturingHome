@@ -1,5 +1,10 @@
 import { router } from 'expo-router';
 import { MainFlowScreen } from '../../src/components/MainFlowScreen';
+import {
+  fixtureScanResult,
+  fixtureScanResultAdapter,
+  scanDraftRepository,
+} from '../../src/features/scan/scanDraft';
 
 export default function ScanScreen() {
   return (
@@ -13,7 +18,12 @@ export default function ScanScreen() {
         { label: '도면 수정', description: '사용자가 벽과 가구 위치를 보정할 수 있게 편집기로 넘깁니다.' },
       ]}
       primaryLabel="도면 편집으로 이동"
-      onPrimaryPress={() => router.push('/(main)/room-editor')}
+      onPrimaryPress={() => {
+        const plan = fixtureScanResultAdapter.toRoomFloorPlan(fixtureScanResult);
+        const draft = scanDraftRepository.create(plan);
+
+        router.push({ pathname: '/(main)/room-editor', params: { draftId: draft.id } });
+      }}
       secondaryLabel="홈으로 돌아가기"
       onSecondaryPress={() => router.back()}
     />

@@ -1,13 +1,19 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MainFlowScreen } from '../../src/components/MainFlowScreen';
 import { FloorPlanPreview } from '../../src/features/room-editor/FloorPlanPreview';
 import { RoomPersistencePanel } from '../../src/features/room-editor/RoomPersistencePanel';
+import { getRoomEditorPlan, scanDraftRepository } from '../../src/features/scan/scanDraft';
 import { mockStudioFloorPlan } from '../../src/mocks/mockRoomFloorPlan';
 
 export default function RoomEditorScreen() {
+  const { draftId } = useLocalSearchParams<{ draftId?: string | string[] }>();
+  const selectedDraftId = typeof draftId === 'string' ? draftId : undefined;
+  const plan = getRoomEditorPlan(selectedDraftId, scanDraftRepository, mockStudioFloorPlan);
+  const isExpiredScanDraft = selectedDraftId !== undefined && plan === mockStudioFloorPlan;
+
   return (
     <MainFlowScreen
-      eyebrow="FLOOR PLAN"
+      eyebrow={isExpiredScanDraft ? 'DRAFT EXPIRED' : 'FLOOR PLAN'}
       title="2D 도면을 다듬는 자리입니다"
       description="Skia 기반 편집기가 들어올 화면입니다. 지금은 방 외곽, 가구 배치, 수정 액션이 들어갈 영역을 먼저 고정합니다."
       steps={[
@@ -20,8 +26,8 @@ export default function RoomEditorScreen() {
       secondaryLabel="스캔 화면으로 돌아가기"
       onSecondaryPress={() => router.back()}
     >
-      <FloorPlanPreview plan={mockStudioFloorPlan} />
-      <RoomPersistencePanel plan={mockStudioFloorPlan} />
+      <FloorPlanPreview plan={plan} />
+      <RoomPersistencePanel plan={plan} />
     </MainFlowScreen>
   );
 }
