@@ -21,6 +21,26 @@ Created with GitHub CLI on 2026-06-30.
 ### Status
 Active tracker for the current MVP.
 
+### 2026-07-01 Progress Update
+- App boot now reaches the login screen in Expo Go after adding an explicit root route at `apps/mobile/app/index.tsx`.
+- Hardened root auth initialization in `apps/mobile/app/_layout.tsx` with Supabase `getSession()` timeout fallback, error handling, font-load fallback, and auth subscription cleanup.
+- Added a development-only local admin bypass login for Expo testing.
+  - Implemented in `apps/mobile/src/services/devAuth.ts`
+  - Credentials are read from ignored local `.env` values and are not documented in the tracker.
+- Updated auth screens to surface network failures instead of throwing unhandled runtime errors.
+- Current Supabase Auth issue remains open: iOS runtime reports `Network request failed` for real sign-up/login.
+- Direct investigation found the linked Supabase project `rwojodlsrhklnjweevfm` was `INACTIVE`; it has now been restored to `ACTIVE_HEALTHY`, email auth is enabled, and direct API/Auth checks respond again.
+- Supabase logs now show successful `/auth/v1/settings` and `/rest/v1/rooms` requests after restore.
+- Non-mutating invalid auth checks now reach Supabase Auth: invalid password login reaches/logs `/auth/v1/token` with `400 invalid_credentials`, and invalid email signup reaches/logs `/auth/v1/signup` with `400 validation_failed`.
+- Added the Supabase React Native runtime setup: URL polyfill, AsyncStorage-backed auth session persistence, auth `processLock`, and native AppState auto-refresh handling.
+- Locked down Supabase table access with migration `20260630162523_lock_down_room_policies`: anon table access is revoked, client `TRUNCATE`/trigger/reference grants are removed, and RLS policies now target `authenticated` with explicit ownership checks.
+- Remote rollback verification confirms the authenticated ownership policy path: own room is visible (`own_visible_count=1`), another user claim cannot see it (`other_visible_count=0`), and verification rows were rolled back.
+- A real public signup test is blocked by Supabase email send rate limiting (`429 over_email_send_rate_limit`); a manually inserted Auth row was cleaned up and not counted as proof because password login returned `invalid_credentials`.
+- Replaced direct Expo SecureStore session persistence with the official React Native AsyncStorage pattern because Expo SecureStore cannot store values larger than 2048 bytes; dev admin still uses SecureStore only for its small local bypass flag.
+- If iPhone auth still fails, debug from fresh device-side logs before adding more client code.
+- Dev admin mock save now uses a local in-memory persistence path instead of calling Supabase without a real Auth session.
+- The earlier `newArchEnabled: false` local experiment was reverted; `apps/mobile/app.json` no longer carries that Expo Go-only experiment.
+
 ### Completed
 - [ ] Expo SDK 54 patch warning stabilization
 - [ ] Connect mock `RoomFloorPlan` to `room-editor`
@@ -36,6 +56,11 @@ Active tracker for the current MVP.
 - `pnpm --filter mobile exec expo install --check`
 - `pnpm --filter mobile exec tsc --noEmit`
 - `pnpm --filter @restructuring-home/domain type-check`
+
+### Latest Local Verification
+- `node node_modules/typescript/bin/tsc --noEmit -p apps/mobile/tsconfig.json`: passed
+- `corepack pnpm --filter mobile exec node ../../node_modules/typescript/bin/tsc --noEmit`: passed
+- Manual Expo Go check: login screen is reachable; dev admin login unblocks UI navigation.
 
 ---
 
@@ -123,6 +148,15 @@ Save and load room floor-plan JSON through Supabase `rooms`.
 - Authenticated user can save a mock `RoomFloorPlan`
 - Saved room can be loaded back into the app
 - No OpenAI or service role keys are shipped in mobile code
+
+### Current Implementation
+- Added a mobile room persistence service using the existing public Supabase client and authenticated user session.
+- Connected the mock floor-plan save/load flow to `room-editor`.
+- Added a focused service assertion for insert payload, load mapping, and dev/mock in-memory persistence.
+- Dev admin sessions now save/load the mock floor plan through local in-memory persistence instead of Supabase.
+- Supabase client now includes the official React Native runtime setup, including AsyncStorage-backed session persistence, guarded by a focused source-level regression test.
+- Supabase room policies are now guarded by a focused schema regression test and applied to the linked project.
+- Pending before closing GitHub issue #4: verify the authenticated save/load round-trip from an iOS or Android device or simulator session.
 
 ---
 

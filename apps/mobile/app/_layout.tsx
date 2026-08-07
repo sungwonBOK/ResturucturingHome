@@ -7,37 +7,90 @@ import { supabase } from '../src/services/supabase';
 import { Session } from '@supabase/supabase-js';
 import { View, ActivityIndicator } from 'react-native';
 import { colors } from '../src/theme/colors';
+import {
+  DevAdminSession,
+  getDevAdminSession,
+  onDevAdminAuthStateChange,
+} from '../src/services/devAuth';
 
-SplashScreen.preventAutoHideAsync();
+const AUTH_SESSION_TIMEOUT_MS = 8000;
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function InitialLayout() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [devAdminSession, setDevAdminSession] = useState<DevAdminSession | null>(null);
   const segments = useSegments();
   const router = useRouter();
+  const isAuthenticated = Boolean(session || devAdminSession);
+  const isAuthLoading = session === undefined && !devAdminSession;
 
   useEffect(() => {
+    let isMounted = true;
+    let didResolveInitialSession = false;
+    const sessionTimeout = setTimeout(() => {
+      if (!didResolveInitialSession && isMounted) {
+        console.warn('Supabase getSession timed out. Continuing as signed out.');
+        setSession(null);
+      }
+    }, AUTH_SESSION_TIMEOUT_MS);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      didResolveInitialSession = true;
+      clearTimeout(sessionTimeout);
+      if (isMounted) {
+        setSession(session);
+      }
+    }).catch((error) => {
+      didResolveInitialSession = true;
+      clearTimeout(sessionTimeout);
+      console.warn('Supabase getSession failed. Continuing as signed out.', error);
+      if (isMounted) {
+        setSession(null);
+      }
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        setSession(session);
+      }
     });
+
+    getDevAdminSession().then((session) => {
+      if (isMounted) {
+        setDevAdminSession(session);
+      }
+    }).catch((error) => {
+      console.warn('Failed to load local dev admin session.', error);
+    });
+
+    const unsubscribeDevAdmin = onDevAdminAuthStateChange((session) => {
+      if (isMounted) {
+        setDevAdminSession(session);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(sessionTimeout);
+      subscription.unsubscribe();
+      unsubscribeDevAdmin();
+    };
   }, []);
 
   useEffect(() => {
-    if (session === undefined) return;
+    if (isAuthLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+    } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(main)/home');
     }
-  }, [session, segments]);
+  }, [isAuthLoading, isAuthenticated, segments]);
 
-  if (session === undefined) {
+  if (isAuthLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -49,7 +102,7 @@ function InitialLayout() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -57,12 +110,16 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontError) {
+      console.warn('Font loading failed. Continuing with system fonts.', fontError);
+    }
+
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <>
