@@ -82,5 +82,5 @@
 ### Task 5: Verification and handoff
 
 - [x] Run all three focused Node-compiled test files, mobile `tsc --noEmit`, domain type-check, Function source type-check, and `git diff --check`.
-- [ ] Manually deploy only after setting `OPENAI_API_KEY` as a Supabase secret and retaining JWT verification. Then, in Expo Go with real Auth, request one style and verify three cards appear. This remains a manual gate because the repository has no local Deno/Supabase runtime.
+- [x] Set `OPENAI_API_KEY` as a Supabase secret, deploy with JWT verification, then verify in Expo Go with real Auth that one style request displays three cards.
 - [x] Commit only Issue #6 files; exclude `RestructuringHome - 바로 가기.lnk`.

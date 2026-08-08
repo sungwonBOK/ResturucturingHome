@@ -30,7 +30,7 @@
 
 #### Supabase 기초
 - `migrations/001_initial_schema.sql`: rooms, recommendations 테이블 + RLS 정책
-- `functions/get-recommendations/`: 요청·응답 계약 검증, OpenAI Responses API 클라이언트, HTTP 핸들러를 분리한 AI 배치 추천 Function. 배포와 Expo Go 실호출은 `OPENAI_API_KEY` secret 설정 후 수동 확인이 남아 있다.
+- `functions/get-recommendations/`: 요청·응답 계약 검증, OpenAI Responses API 클라이언트, HTTP 핸들러를 분리한 AI 배치 추천 Function. `OPENAI_API_KEY` secret을 사용해 v2로 배포됐고, 로그인한 Expo Go에서 추천 카드 3개가 표시되는 것을 확인했다.
 
 ---
 

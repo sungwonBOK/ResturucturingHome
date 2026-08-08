@@ -177,7 +177,7 @@ Connect scan output placeholders to the shared `RoomFloorPlan` schema.
 
 ---
 
-## Next: Implement OpenAI recommendation Edge Function
+## ✅ Implemented: OpenAI recommendation Edge Function
 
 ### Goal
 Generate layout recommendations through Supabase Edge Functions, never from the mobile app directly.
@@ -192,6 +192,7 @@ Generate layout recommendations through Supabase Edge Functions, never from the 
 - Function validates required input
 - Mobile app calls Supabase function, not OpenAI directly
 - Returned recommendations match `packages/domain` types
+- Supabase Function v2가 JWT 검증을 유지한 채 배포됐고, 로그인한 Expo Go에서 추천 카드 3개 표시까지 확인했다.
 
 ---
 
