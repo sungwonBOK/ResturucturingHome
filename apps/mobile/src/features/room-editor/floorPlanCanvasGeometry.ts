@@ -1,4 +1,8 @@
 import type { FurnitureItem, Opening, RoomFloorPlan, Wall } from '@restructuring-home/domain';
+import type { FurniturePreset } from '../furniture/catalog/furnitureCatalog';
+import { getFurniturePreset } from '../furniture/catalog/getFurnitureCatalogItem';
+import { getOpeningSegment } from '../room-plan/model/openingSegment';
+import { getWallBounds } from '../room-plan/model/roomOutline';
 
 export interface FloorPlanCanvasGeometry {
   scale: number;
@@ -24,7 +28,8 @@ export interface CanvasOpening {
   x: number;
   y: number;
   width: number;
-  isHorizontal: boolean;
+  endX: number;
+  endY: number;
 }
 
 export interface CanvasFurniture {
@@ -35,6 +40,7 @@ export interface CanvasFurniture {
   height: number;
   rotation: number;
   label: string;
+  preset?: FurniturePreset;
 }
 
 export function getFloorPlanCanvasGeometry(
@@ -42,14 +48,7 @@ export function getFloorPlanCanvasGeometry(
   canvasWidth: number,
   canvasHeight: number,
 ): FloorPlanCanvasGeometry {
-  const scale = Math.min(canvasWidth / plan.width, canvasHeight / plan.height);
-  const fittedWidth = plan.width * scale;
-  const fittedHeight = plan.height * scale;
-  const offsetX = (canvasWidth - fittedWidth) / 2;
-  const offsetY = (canvasHeight - fittedHeight) / 2;
-
-  const toX = (value: number) => offsetX + value * scale;
-  const toY = (value: number) => offsetY + value * scale;
+  const { scale, offsetX, offsetY, toX, toY } = getFloorPlanCanvasTransform(plan, canvasWidth, canvasHeight);
 
   return {
     scale,
@@ -57,11 +56,26 @@ export function getFloorPlanCanvasGeometry(
     offsetY,
     walls: plan.walls.map((wall) => toCanvasWall(wall, scale, toX, toY)),
     openings: [
-      ...plan.windows.map((opening) => toCanvasOpening(opening, 'window', plan, scale, toX, toY)),
-      ...plan.doors.map((opening) => toCanvasOpening(opening, 'door', plan, scale, toX, toY)),
+      ...plan.windows.flatMap((opening) => toCanvasOpening(opening, 'window', plan, scale, toX, toY)),
+      ...plan.doors.flatMap((opening) => toCanvasOpening(opening, 'door', plan, scale, toX, toY)),
     ],
-    furniture: plan.furniture.map((item) => toCanvasFurniture(item, scale, toX, toY)),
+    furniture: plan.furniture
+      .map((item) => toCanvasFurniture(item, scale, toX, toY))
+      .sort((first, second) =>
+        Number(Boolean(second.preset?.allowsFurnitureOnTop)) - Number(Boolean(first.preset?.allowsFurnitureOnTop))),
   };
+}
+
+export function getFloorPlanCanvasTransform(plan: RoomFloorPlan, width: number, height: number, padding = 0) {
+  const bounds = getWallBounds(plan.walls);
+  const minX = Number.isFinite(bounds.minX) ? bounds.minX : 0;
+  const minY = Number.isFinite(bounds.minY) ? bounds.minY : 0;
+  const roomWidth = bounds.maxX > minX ? bounds.maxX - minX : Math.max(plan.width, 1);
+  const roomHeight = bounds.maxY > minY ? bounds.maxY - minY : Math.max(plan.height, 1);
+  const scale = Math.min(Math.max(1, width - padding * 2) / roomWidth, Math.max(1, height - padding * 2) / roomHeight);
+  const offsetX = (width - roomWidth * scale) / 2 - minX * scale;
+  const offsetY = (height - roomHeight * scale) / 2 - minY * scale;
+  return { scale, offsetX, offsetY, toX: (x: number) => offsetX + x * scale, toY: (y: number) => offsetY + y * scale };
 }
 
 function toCanvasWall(
@@ -87,17 +101,20 @@ function toCanvasOpening(
   scale: number,
   toX: (value: number) => number,
   toY: (value: number) => number,
-): CanvasOpening {
+): CanvasOpening[] {
   const wall = plan.walls.find((item) => item.id === opening.wallId);
+  const segment = wall && getOpeningSegment(opening, wall);
+  if (!segment) return [];
 
-  return {
+  return [{
     id: opening.id,
     variant,
-    x: toX(opening.x),
-    y: toY(opening.y),
-    width: opening.width * scale,
-    isHorizontal: wall ? wall.y1 === wall.y2 : true,
-  };
+    x: toX(segment.start.x),
+    y: toY(segment.start.y),
+    width: segment.width * scale,
+    endX: toX(segment.end.x),
+    endY: toY(segment.end.y),
+  }];
 }
 
 function toCanvasFurniture(
@@ -106,6 +123,7 @@ function toCanvasFurniture(
   toX: (value: number) => number,
   toY: (value: number) => number,
 ): CanvasFurniture {
+  const preset = getFurniturePreset(item.type, item.catalogId);
   return {
     id: item.id,
     x: toX(item.x),
@@ -113,6 +131,7 @@ function toCanvasFurniture(
     width: item.width * scale,
     height: item.height * scale,
     rotation: item.rotation,
-    label: item.label ?? item.type,
+    label: item.label ?? preset.label,
+    preset,
   };
 }

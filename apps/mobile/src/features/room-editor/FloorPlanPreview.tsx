@@ -1,11 +1,15 @@
-import { Canvas, Group, Line, RoundedRect, vec } from '@shopify/react-native-skia';
+import { Canvas, Group, Line, Path, vec } from '@shopify/react-native-skia';
 import type { RoomFloorPlan } from '@restructuring-home/domain';
 import { useMemo, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useCanvasPanGesture } from '../../components/FlowScrollGesture';
+import { FurnitureDrawing } from '../furniture/ui/FurnitureDrawing';
 import { colors } from '../../theme/colors';
 import { getFloorPlanCanvasGeometry } from './floorPlanCanvasGeometry';
 import { getFloorPlanPreviewMetrics } from './floorPlanPreviewMetrics';
+import { validateRoomOutline } from '../room-plan/model/roomOutline';
 
 interface FloorPlanPreviewProps {
   plan: RoomFloorPlan;
@@ -13,12 +17,16 @@ interface FloorPlanPreviewProps {
 
 export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
   const [canvasWidth, setCanvasWidth] = useState(0);
+  const pan = useCanvasPanGesture();
   const metrics = getFloorPlanPreviewMetrics(plan);
   const canvasHeight = canvasWidth > 0 ? Math.min(360, canvasWidth * (plan.height / plan.width)) : 320;
   const geometry = useMemo(
     () => getFloorPlanCanvasGeometry(plan, canvasWidth || 1, canvasHeight),
     [canvasHeight, canvasWidth, plan],
   );
+  const interiorPath = validateRoomOutline(plan).isValid
+    ? geometry.walls.map((wall, index) => `${index === 0 ? 'M' : 'L'} ${wall.x1} ${wall.y1}`).join(' ') + ' Z'
+    : undefined;
 
   const handleCanvasLayout = (event: LayoutChangeEvent) => {
     const nextWidth = event.nativeEvent.layout.width;
@@ -34,6 +42,7 @@ export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
         {canvasWidth > 0 ? (
           <>
             <Canvas style={styles.canvas}>
+              {interiorPath ? <Path path={interiorPath} color="#1C293B" /> : null}
               {geometry.walls.map((wall) => (
                 <Line
                   key={wall.id}
@@ -46,13 +55,12 @@ export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
               ))}
 
               {geometry.openings.map((opening) => (
-                <RoundedRect
+                <Line
                   key={opening.id}
-                  x={opening.isHorizontal ? opening.x : opening.x - 4}
-                  y={opening.isHorizontal ? opening.y - 4 : opening.y}
-                  width={opening.isHorizontal ? opening.width : 8}
-                  height={opening.isHorizontal ? 8 : opening.width}
-                  r={4}
+                  p1={vec(opening.x, opening.y)}
+                  p2={vec(opening.endX, opening.endY)}
+                  strokeWidth={8}
+                  strokeCap="round"
                   color={opening.variant === 'door' ? colors.success : colors.primary}
                 />
               ))}
@@ -67,24 +75,7 @@ export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
                     origin={vec(centerX, centerY)}
                     transform={[{ rotate: (item.rotation * Math.PI) / 180 }]}
                   >
-                    <RoundedRect
-                      x={item.x}
-                      y={item.y}
-                      width={item.width}
-                      height={item.height}
-                      r={10}
-                      color={colors.primaryDim}
-                    />
-                    <RoundedRect
-                      x={item.x}
-                      y={item.y}
-                      width={item.width}
-                      height={item.height}
-                      r={10}
-                      color="rgba(129,140,248,0.48)"
-                      style="stroke"
-                      strokeWidth={1}
-                    />
+                    <FurnitureDrawing {...item} />
                   </Group>
                 );
               })}
@@ -111,6 +102,9 @@ export function FloorPlanPreview({ plan }: FloorPlanPreviewProps) {
             ))}
           </>
         ) : null}
+        <GestureDetector gesture={pan}>
+          <View collapsable={false} style={StyleSheet.absoluteFill} />
+        </GestureDetector>
       </View>
 
       <View style={styles.metricsRow}>
@@ -162,6 +156,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
     color: colors.textPrimary,
+    backgroundColor: 'rgba(15,23,42,0.84)',
+    borderRadius: 4,
+    paddingHorizontal: 4,
   },
   metricsRow: {
     flexDirection: 'row',

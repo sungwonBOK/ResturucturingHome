@@ -36,6 +36,7 @@ export interface FurnitureItem {
   height: number;
   rotation: number; // degrees
   label?: string;
+  catalogId?: string;
 }
 
 export type FurnitureType =
@@ -49,6 +50,13 @@ export type FurnitureType =
   | 'tv_stand'
   | 'other';
 
+export interface FurnitureUse {
+  role: FurnitureType | 'coffee_table' | 'side_table' | 'vanity' | 'drawer_unit' | 'fridge' | 'washer' | 'air_purifier' | 'rug';
+  front?: 'top' | 'bottom';
+  clearanceCm?: number;
+  allowsFurnitureOnTop?: boolean;
+}
+
 export type RoomStyle = 'minimal' | 'nordic' | 'modern' | 'vintage';
 
 export interface RecommendationLayout {
@@ -56,4 +64,5 @@ export interface RecommendationLayout {
   style: RoomStyle;
   furniture: FurnitureItem[];
   reason: string; // 한국어 설명
+  source?: 'ai' | 'adjusted' | 'current';
 }

@@ -35,7 +35,7 @@ Deno.serve(async (request: Request) => {
 
     const client = createOpenAIRecommendationClient({ apiKey, fetch });
     const modelResponse = await client.recommend(recommendationRequest);
-    const recommendations = parseRecommendationLayouts(modelResponse, recommendationRequest.style);
+    const recommendations = parseRecommendationLayouts(modelResponse, recommendationRequest);
 
     return jsonResponse({ recommendations }, 200);
   } catch (error) {

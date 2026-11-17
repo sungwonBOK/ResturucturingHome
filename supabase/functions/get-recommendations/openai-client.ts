@@ -1,11 +1,13 @@
-export interface OpenAIRecommendationRequest {
-  floorPlan: unknown;
-  style: 'minimal' | 'nordic' | 'modern' | 'vintage';
-  screenshotUrl?: string;
-}
+import type { RecommendationRequest, RoomStyle } from './contracts.ts';
+
+const styleInstructions: Partial<Record<RoomStyle, string>> = {
+  minimal: 'Prioritize continuous open floor space. Where the room shape allows, move bulky furniture toward the edges to keep a clear route between frequently used pieces.',
+  modern: 'When the room serves multiple activities, group furniture by activity, such as work or sleep. Place related storage within easy reach where it fits.',
+  nordic: 'When possible, create a rest area around an existing sofa or bed away from the main walking route. Include nearby furniture only if it supports that use, and leave room to approach the seat or bed.',
+};
 
 export interface OpenAIRecommendationClient {
-  recommend(request: OpenAIRecommendationRequest): Promise<unknown>;
+  recommend(request: RecommendationRequest): Promise<unknown>;
 }
 
 export interface OpenAIRecommendationClientOptions {
@@ -24,6 +26,14 @@ export function createOpenAIRecommendationClient(
 
   return {
     async recommend(request) {
+      const floorPlan = {
+        ...request.floorPlan,
+        furniture: request.floorPlan.furniture.map((item) => ({
+          ...item,
+          x: item.x + item.width / 2,
+          y: item.y + item.height / 2,
+        })),
+      };
       const response = await options.fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
@@ -32,14 +42,18 @@ export function createOpenAIRecommendationClient(
         },
         body: JSON.stringify({
           model: 'gpt-4o',
-          instructions: buildInstructions(),
+          instructions: buildInstructions(request.style),
           input: [
             {
               role: 'user',
               content: [
                 {
                   type: 'input_text',
-                  text: JSON.stringify({ floorPlan: request.floorPlan, style: request.style }),
+                  text: JSON.stringify({
+                    floorPlan,
+                    ...(request.roomInterior ? { roomInterior: request.roomInterior } : {}),
+                    style: request.style,
+                  }),
                 },
                 ...(request.screenshotUrl
                   ? [{ type: 'input_image', image_url: request.screenshotUrl }]
@@ -74,13 +88,22 @@ export function createOpenAIRecommendationClient(
   };
 }
 
-function buildInstructions(): string {
+function buildInstructions(style: RoomStyle): string {
   return [
     'You are an interior layout assistant for a single room.',
     'Return exactly three practical furniture layouts for the requested style.',
-    'Keep every furniture item inside the room dimensions and preserve clearance for doors and windows.',
-    'Use centimeters for x, y, width, height, and degrees for rotation.',
-    'Write each reason in Korean.',
+    'Base the recommendation on the supplied room geometry and furniture. Treat unrecorded features as unknown and describe only changes supported by the layout.',
+    'The connected wall segments form the actual room boundary. Use their coordinates as given, including any offset from the room origin (0, 0).',
+    'Wall coordinates are wall centerlines. Each wall extends half of its thickness to both sides, so furniture can only reach the inner face, not the centerline.',
+    'roomInterior, when provided, is the usable floor polygon formed by those inner faces. Keep every rotated furniture footprint fully inside roomInterior, including irregular and concave outlines. To place furniture against a wall, align its edge with the roomInterior edge.',
+    'Use every input furniture id exactly once per layout. For each item return only its id, x, y, and rotation. Use its original dimensions to plan the layout.',
+    'x increases right and y increases down, in centimeters. Furniture x and y locate the furniture center in both input and output. Rotation is clockwise in degrees around that center.',
+    'Each recorded opening starts at (x, y) and extends by its width along the wall toward increasing x for mainly horizontal walls or increasing y for mainly vertical walls. Keep the full span within the wall. For doors in the supplied plan, leave an unobstructed entry as deep as the door width, up to 90 cm, measured from the inner face.',
+    'Use the furniture use.role, label and catalogId to understand its purpose. Its use.front is its top or bottom edge before rotation. Leave use.clearanceCm of usable room in front of it. An item with use.allowsFurnitureOnTop can overlap other furniture and its access space.',
+    'Prefer sofas facing TV stands with a clear sightline and chairs near the usable side of desks or dining tables. If a chair already forms a clear pair with a work or dining surface in the input layout, keep them together with the chair facing the usable side.',
+    'Apply the requested style as a preference among practical arrangements. If the furniture or available space cannot support that preference, prioritize safe access and normal furniture use.',
+    ...(styleInstructions[style] ? [styleInstructions[style]] : []),
+    'Write each reason in Korean. Explain one concrete placement choice in the returned layout and how it helps. If a position or orientation changed from the input, describe that change.',
   ].join(' ');
 }
 
@@ -143,27 +166,11 @@ const recommendationResponseSchema = {
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['id', 'type', 'x', 'y', 'width', 'height', 'rotation'],
+              required: ['id', 'x', 'y', 'rotation'],
               properties: {
                 id: { type: 'string' },
-                type: {
-                  type: 'string',
-                  enum: [
-                    'sofa',
-                    'bed',
-                    'desk',
-                    'wardrobe',
-                    'dining_table',
-                    'chair',
-                    'bookshelf',
-                    'tv_stand',
-                    'other',
-                  ],
-                },
                 x: { type: 'number' },
                 y: { type: 'number' },
-                width: { type: 'number' },
-                height: { type: 'number' },
                 rotation: { type: 'number' },
               },
             },

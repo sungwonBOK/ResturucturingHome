@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "mobile": "pnpm --filter mobile start",
-    "type-check": "pnpm --filter @restructuring-home/domain type-check"
+    "type-check": "pnpm --filter @restructuring-home/domain type-check",
+    "test": "node scripts/test.mjs"
   }
 }

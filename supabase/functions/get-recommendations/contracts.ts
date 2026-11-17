@@ -14,7 +14,14 @@ export type FurnitureType =
 export interface RecommendationRequest {
   floorPlan: RoomFloorPlan;
   style: RoomStyle;
+  /** 벽 안쪽 면으로 둘러싸인 실제 바닥 다각형(cm). 앱이 계산해 보냅니다. */
+  roomInterior?: Point[];
   screenshotUrl?: string;
+}
+
+export interface Point {
+  x: number;
+  y: number;
 }
 
 export interface RoomFloorPlan {
@@ -52,6 +59,13 @@ export interface FurnitureItem {
   height: number;
   rotation: number;
   label?: string;
+  catalogId?: string;
+  use?: {
+    role: string;
+    front?: 'top' | 'bottom';
+    clearanceCm?: number;
+    allowsFurnitureOnTop?: boolean;
+  };
 }
 
 export interface RecommendationLayout {
@@ -79,13 +93,22 @@ const furnitureTypes: FurnitureType[] = [
 export function parseRecommendationRequest(value: unknown): RecommendationRequest {
   const record = expectRecord(value, 'request');
   const floorPlan = parseRoomFloorPlan(record.floorPlan);
+  if (new Set(floorPlan.furniture.map(({ id }) => id)).size !== floorPlan.furniture.length) {
+    throw new RecommendationContractError('가구 ID가 중복되었습니다.');
+  }
   const style = parseRoomStyle(record.style);
   const screenshotUrl = parseScreenshotUrl(record.screenshotUrl);
+  const roomInterior = parseRoomInterior(record.roomInterior);
 
-  return screenshotUrl ? { floorPlan, style, screenshotUrl } : { floorPlan, style };
+  return {
+    floorPlan,
+    style,
+    ...(roomInterior ? { roomInterior } : {}),
+    ...(screenshotUrl ? { screenshotUrl } : {}),
+  };
 }
 
-export function parseRecommendationLayouts(value: unknown, selectedStyle: RoomStyle): RecommendationLayout[] {
+export function parseRecommendationLayouts(value: unknown, request: RecommendationRequest): RecommendationLayout[] {
   const record = expectRecord(value, 'recommendation response');
   const recommendations = expectArray(record.recommendations, 'recommendations');
 
@@ -93,7 +116,18 @@ export function parseRecommendationLayouts(value: unknown, selectedStyle: RoomSt
     throw new RecommendationContractError('AI 응답은 정확히 3개의 추천을 포함해야 합니다.');
   }
 
-  return recommendations.map((layout, index) => parseRecommendationLayout(layout, selectedStyle, index));
+  const originals = new Map(request.floorPlan.furniture.map((item) => [item.id, item]));
+  const valid: RecommendationLayout[] = [];
+  for (const [index, candidate] of recommendations.entries()) {
+    try {
+      valid.push(parseRecommendationLayout(candidate, request.style, originals, index));
+    } catch (error) {
+      if (!(error instanceof RecommendationContractError)) throw error;
+      // AI 응답이 형식 검사에서 얼마나, 왜 탈락하는지 함수 로그로 확인합니다.
+      console.warn(`[get-recommendations] recommendations[${index}] 탈락: ${error.message}`);
+    }
+  }
+  return valid;
 }
 
 function parseRoomFloorPlan(value: unknown): RoomFloorPlan {
@@ -109,7 +143,9 @@ function parseRoomFloorPlan(value: unknown): RoomFloorPlan {
   };
 }
 
-function parseRecommendationLayout(value: unknown, selectedStyle: RoomStyle, index: number): RecommendationLayout {
+function parseRecommendationLayout(
+  value: unknown, selectedStyle: RoomStyle, originals: Map<string, FurnitureItem>, index: number,
+): RecommendationLayout {
   const record = expectRecord(value, `recommendations[${index}]`);
   const style = parseRoomStyle(record.style);
 
@@ -117,11 +153,30 @@ function parseRecommendationLayout(value: unknown, selectedStyle: RoomStyle, ind
     throw new RecommendationContractError('AI 응답의 스타일이 요청한 스타일과 다릅니다.');
   }
 
+  const seen = new Set<string>();
+  const furniture = expectArray(record.furniture, `recommendations[${index}].furniture`).map((value) => {
+    const pose = expectRecord(value, 'furniture pose');
+    const id = expectNonEmptyString(pose.id, 'furniture.id');
+    const original = originals.get(id);
+    if (!original || seen.has(id)) throw new RecommendationContractError('추천 가구 ID가 원본과 일치하지 않습니다.');
+    seen.add(id);
+    const rotation = expectFiniteNumber(pose.rotation, 'furniture.rotation');
+    const { use: _use, ...item } = original;
+    // The model returns centers. The app stores unrotated top-left positions.
+    return {
+      ...item,
+      x: expectFiniteNumber(pose.x, 'furniture.x') - item.width / 2,
+      y: expectFiniteNumber(pose.y, 'furniture.y') - item.height / 2,
+      rotation: ((rotation % 360) + 360) % 360,
+    };
+  });
+  if (seen.size !== originals.size) throw new RecommendationContractError('추천에 원본 가구가 누락되었습니다.');
+
   return {
     id: expectNonEmptyString(record.id, `recommendations[${index}].id`),
     style,
     reason: expectNonEmptyString(record.reason, `recommendations[${index}].reason`),
-    furniture: expectArray(record.furniture, `recommendations[${index}].furniture`).map(parseFurniture),
+    furniture,
   };
 }
 
@@ -153,6 +208,8 @@ function parseOpening(value: unknown): Opening {
 function parseFurniture(value: unknown): FurnitureItem {
   const record = expectRecord(value, 'furniture');
   const label = record.label === undefined ? undefined : expectNonEmptyString(record.label, 'furniture.label');
+  const catalogId = record.catalogId === undefined ? undefined : expectNonEmptyString(record.catalogId, 'furniture.catalogId');
+  const use = record.use === undefined ? undefined : parseFurnitureUse(record.use);
 
   return {
     id: expectNonEmptyString(record.id, 'furniture.id'),
@@ -163,7 +220,40 @@ function parseFurniture(value: unknown): FurnitureItem {
     height: expectPositiveNumber(record.height, 'furniture.height'),
     rotation: expectFiniteNumber(record.rotation, 'furniture.rotation'),
     ...(label ? { label } : {}),
+    ...(catalogId ? { catalogId } : {}),
+    ...(use ? { use } : {}),
   };
+}
+
+function parseFurnitureUse(value: unknown): NonNullable<FurnitureItem['use']> {
+  const record = expectRecord(value, 'furniture.use');
+  const use: NonNullable<FurnitureItem['use']> = { role: expectNonEmptyString(record.role, 'furniture.use.role') };
+  if (record.front !== undefined) {
+    if (record.front !== 'top' && record.front !== 'bottom') throw new RecommendationContractError('지원하지 않는 가구 앞면 방향입니다.');
+    use.front = record.front;
+  }
+  if (record.clearanceCm !== undefined) {
+    if (!use.front) throw new RecommendationContractError('가구 사용 공간에는 앞면 방향이 필요합니다.');
+    use.clearanceCm = expectPositiveNumber(record.clearanceCm, 'furniture.use.clearanceCm');
+  }
+  if (record.allowsFurnitureOnTop !== undefined) {
+    if (typeof record.allowsFurnitureOnTop !== 'boolean') throw new RecommendationContractError('가구의 바닥 공유 값은 참 또는 거짓이어야 합니다.');
+    use.allowsFurnitureOnTop = record.allowsFurnitureOnTop;
+  }
+  return use;
+}
+
+function parseRoomInterior(value: unknown): Point[] | undefined {
+  if (value === undefined) return undefined;
+
+  const points = expectArray(value, 'roomInterior').map((point) => {
+    const record = expectRecord(point, 'roomInterior point');
+    return { x: expectFiniteNumber(record.x, 'roomInterior.x'), y: expectFiniteNumber(record.y, 'roomInterior.y') };
+  });
+  if (points.length < 3) {
+    throw new RecommendationContractError('방 바닥 다각형에는 꼭짓점이 세 개 이상 필요합니다.');
+  }
+  return points;
 }
 
 function parseRoomStyle(value: unknown): RoomStyle {

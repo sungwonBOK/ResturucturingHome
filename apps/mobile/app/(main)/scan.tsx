@@ -1,10 +1,8 @@
 import { router } from 'expo-router';
 import { MainFlowScreen } from '../../src/components/MainFlowScreen';
-import {
-  fixtureScanResult,
-  fixtureScanResultAdapter,
-  scanDraftRepository,
-} from '../../src/features/scan/scanDraft';
+import { fixtureScanResult, fixtureScanResultAdapter } from '../../src/features/scan/scanDraft';
+import { scanDraftRepository } from '../../src/features/scan/scanDraftStore';
+import { getWorkflowRoute } from '../../src/features/workflow/workflowRoute';
 
 export default function ScanScreen() {
   return (
@@ -22,7 +20,7 @@ export default function ScanScreen() {
         const plan = fixtureScanResultAdapter.toRoomFloorPlan(fixtureScanResult);
         const draft = scanDraftRepository.create(plan);
 
-        router.push({ pathname: '/(main)/room-editor', params: { draftId: draft.id } });
+        router.push(getWorkflowRoute('roomPlanSetup', draft.id));
       }}
       secondaryLabel="홈으로 돌아가기"
       onSecondaryPress={() => router.back()}

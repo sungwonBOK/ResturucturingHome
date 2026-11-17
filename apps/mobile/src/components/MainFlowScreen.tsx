@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
+import { FlowScrollGesture } from './FlowScrollGesture';
 
 interface FlowStep {
   label: string;
@@ -23,6 +25,7 @@ interface MainFlowScreenProps {
   children?: ReactNode;
   primaryLabel: string;
   onPrimaryPress: () => void;
+  primaryDisabled?: boolean;
   secondaryLabel?: string;
   onSecondaryPress?: () => void;
 }
@@ -35,46 +38,56 @@ export function MainFlowScreen({
   children,
   primaryLabel,
   onPrimaryPress,
+  primaryDisabled = false,
   secondaryLabel,
   onSecondaryPress,
 }: MainFlowScreenProps) {
+  const scrollGesture = useMemo(() => Gesture.Native(), []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>{eyebrow}</Text>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
-        </View>
-
-        <View style={styles.panel}>
-          {steps.map((step, index) => (
-            <View key={step.label} style={styles.stepRow}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>{String(index + 1).padStart(2, '0')}</Text>
-              </View>
-              <View style={styles.stepTextWrap}>
-                <Text style={styles.stepLabel}>{step.label}</Text>
-                <Text style={styles.stepDescription}>{step.description}</Text>
-              </View>
+      <GestureHandlerRootView style={styles.scroll}>
+        <GestureDetector gesture={scrollGesture} touchAction="pan-y">
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.header}>
+              <Text style={styles.eyebrow}>{eyebrow}</Text>
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.description}>{description}</Text>
             </View>
-          ))}
-        </View>
 
-        {children}
-      </ScrollView>
+            {steps.length > 0 ? <View style={styles.panel}>
+              {steps.map((step, index) => (
+                <View key={step.label} style={styles.stepRow}>
+                  <View style={styles.stepNumber}>
+                    <Text style={styles.stepNumberText}>{String(index + 1).padStart(2, '0')}</Text>
+                  </View>
+                  <View style={styles.stepTextWrap}>
+                    <Text style={styles.stepLabel}>{step.label}</Text>
+                    <Text style={styles.stepDescription}>{step.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </View> : null}
+
+            <FlowScrollGesture.Provider value={scrollGesture}>
+              {children}
+            </FlowScrollGesture.Provider>
+          </ScrollView>
+        </GestureDetector>
+      </GestureHandlerRootView>
 
       <View style={styles.actionBar}>
-        <TouchableOpacity activeOpacity={0.85} onPress={onPrimaryPress}>
+        <TouchableOpacity activeOpacity={0.85} disabled={primaryDisabled} onPress={onPrimaryPress}>
           <LinearGradient
             colors={[colors.gradientStart, colors.gradientEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.primaryButton}
+            style={[styles.primaryButton, primaryDisabled ? styles.primaryButtonDisabled : null]}
           >
             <Text style={styles.primaryButtonText}>{primaryLabel}</Text>
           </LinearGradient>
@@ -170,6 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  primaryButtonDisabled: { opacity: 0.45 },
   primaryButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,

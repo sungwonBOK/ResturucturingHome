@@ -28,6 +28,27 @@ assertEqual(entryDoor.variant, 'door', 'entry door variant');
 assertClose(entryDoor.x, 120, 'entry door x');
 assertClose(entryDoor.y, 360, 'entry door y');
 assertClose(entryDoor.width, 60, 'entry door width');
+assertClose(entryDoor.endX, 180, 'door extends toward increasing x on the reversed south wall');
+
+const slantedPlan = {
+  ...mockStudioFloorPlan,
+  walls: [{ id: 'wall-south', x1: 300, y1: 400, x2: 0, y2: 100, thickness: 10 }],
+  doors: [{ id: 'slanted-door', wallId: 'wall-south', x: 100, y: 200, width: Math.SQRT2 * 60 }],
+  windows: [],
+};
+const slantedGeometry = getFloorPlanCanvasGeometry(slantedPlan, 360, 480);
+const [slantedDoor] = slantedGeometry.openings;
+assertClose(slantedDoor.endX - slantedDoor.x, 60 * slantedGeometry.scale, 'slanted opening follows the wall along x');
+assertClose(slantedDoor.endY - slantedDoor.y, 60 * slantedGeometry.scale, 'slanted opening follows the wall along y');
+
+const translated = getFloorPlanCanvasGeometry({
+  ...mockStudioFloorPlan,
+  walls: mockStudioFloorPlan.walls.map((wall) => ({ ...wall, x1: wall.x1 + 400, x2: wall.x2 + 400, y1: wall.y1 + 500, y2: wall.y2 + 500 })),
+  furniture: mockStudioFloorPlan.furniture.map((item) => ({ ...item, x: item.x + 400, y: item.y + 500 })),
+}, 300, 360);
+assertClose(translated.walls[0].x1, northWall.x1, 'translated plan fits on the same canvas');
+assertClose(translated.walls[0].y1, northWall.y1, 'translated wall keeps the same screen y');
+assertClose(translated.furniture[0].x, geometry.furniture[0].x, 'translated furniture stays aligned to its walls');
 
 const bed = geometry.furniture.find((item) => item.id === 'bed-main');
 if (!bed) {
@@ -45,7 +66,7 @@ function assertEqual<T>(actual: T, expected: T, label: string) {
 }
 
 function assertClose(actual: number, expected: number, label: string) {
-  if (Math.abs(actual - expected) > 0.001) {
+  if (!Number.isFinite(actual) || Math.abs(actual - expected) > 0.001) {
     throw new Error(`${label}: expected ${expected}, got ${actual}`);
   }
 }

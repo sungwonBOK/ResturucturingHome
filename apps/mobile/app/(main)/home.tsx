@@ -8,15 +8,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { colors } from '../../src/theme/colors';
+import { fixtureScanResult, fixtureScanResultAdapter } from '../../src/features/scan/scanDraft';
+import { scanDraftRepository } from '../../src/features/scan/scanDraftStore';
+import { getWorkflowRoute } from '../../src/features/workflow/workflowRoute';
 
 const { width } = Dimensions.get('window');
 
-const MOCK_ROOMS: any[] = [];
-
 export default function HomeScreen() {
-  const hasRooms = MOCK_ROOMS.length > 0;
+  const [latestDraftId, setLatestDraftId] = useState(() => scanDraftRepository.getLatestDraftId());
+  const latestPlan = latestDraftId ? scanDraftRepository.get(latestDraftId) : undefined;
+
+  useFocusEffect(useCallback(() => {
+    setLatestDraftId(scanDraftRepository.getLatestDraftId());
+  }, []));
+
+  const resumeDraft = () => {
+    if (!latestDraftId || !latestPlan) return;
+    // 가구 편집으로 바로 가더라도 '도면 설정으로'가 1단계로 돌아가도록 단계 순서대로 쌓습니다.
+    router.push(getWorkflowRoute('roomPlanSetup', latestDraftId));
+    if (latestPlan.furniture.length) router.push(getWorkflowRoute('furnitureEditor', latestDraftId));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,19 +83,16 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>내 방</Text>
-            {hasRooms && (
-              <TouchableOpacity>
-                <Text style={styles.sectionLink}>전체보기 →</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
-          {hasRooms ? (
-            MOCK_ROOMS.map((room) => (
-              <View key={room.id} style={styles.roomCard}>
-                <Text style={styles.roomName}>{room.name}</Text>
-              </View>
-            ))
+          {latestPlan ? (
+            <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} style={styles.roomCard} onPress={resumeDraft}>
+              <Text style={styles.roomName}>편집 중인 도면</Text>
+              <Text style={styles.roomMeta}>
+                {Math.round(latestPlan.width)} × {Math.round(latestPlan.height)} cm · 가구 {latestPlan.furniture.length}개
+              </Text>
+              <Text style={styles.sectionLink}>이어서 편집하기 →</Text>
+            </TouchableOpacity>
           ) : (
             <View style={styles.emptyCard}>
               <LinearGradient
@@ -138,9 +149,15 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.ctaSecondary}
-          onPress={() => router.push('/(main)/room-editor')}
+          onPress={() => {
+            const plan = fixtureScanResultAdapter.toRoomFloorPlan(fixtureScanResult);
+            // 직접 만드는 도면은 문 1개만 기본으로 두고, 창은 필요할 때 추가합니다.
+            const draft = scanDraftRepository.create({ ...plan, windows: [], furniture: [] });
+
+            router.push(getWorkflowRoute('roomPlanSetup', draft.id));
+          }}
         >
-          <Text style={styles.ctaSecondaryText}>사진으로 시작하기</Text>
+          <Text style={styles.ctaSecondaryText}>직접 도면 만들기</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -275,6 +292,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
     color: colors.textPrimary,
+  },
+  roomMeta: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+    marginBottom: 10,
   },
 
   // Empty state
